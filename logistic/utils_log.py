@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
+# utils from coursera
 
 def load_data(filename):
     data = np.loadtxt(filename, delimiter=',')

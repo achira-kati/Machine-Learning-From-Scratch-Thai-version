@@ -2,91 +2,72 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def ReLU(Z):
-	return np.maximum(0, Z)
+def relu(z):
+	return np.maximum(0, z)
 
-def softmax(z):
-    max_z = np.max(z, axis=0)
-    z_adjusted = z - max_z
-    exp_values = np.exp(z_adjusted)
-    sum_exp_values = np.sum(exp_values, axis=0)
-    probabilities = exp_values / sum_exp_values
-    return probabilities
+def deriv_relu(z):
+	return z > 0
 
-def ReLU_deriv(Z):
-	return Z > 0
+def softmax(z): # stabel softmax
+	z = z - np.max(z, axis=0)
+	return np.exp(z) / np.sum(np.exp(z), axis=0)
 
 def one_hot(Y):
 	m = len(Y)
-	one_hot_Y = np.zeros((10, m))
-	for j in range(m):
-		one_hot_Y[Y[j]][j] = 1 
-	return one_hot_Y
+	one_hot = np.zeros((10, m))
+	for i in range(m):
+		one_hot[Y[i]][i] = 1
+	return one_hot
 
-def get_predictions(A2):
-	return np.argmax(A2, 0)
+def get_predict(A2):
+	return np.argmax(A2, axis=0)
 
-class Nn:
+def get_accuracy(predict, Y):
+	return np.sum(get_predict(predict) == Y) / len(Y)
+
+class My_nn:
 	def __init__(self):
-		self.W1 = np.random.rand(15, 400) - 0.5
-		self.b1 = np.random.rand(15, 1) - 0.5
-		self.W2 = np.random.rand(10, 15) - 0.5
+		self.W1 = np.random.rand(10, 784) - 0.5
+		self.b1 = np.random.rand(10, 1) - 0.5
+		self.W2 = np.random.rand(10, 10) - 0.5
 		self.b2 = np.random.rand(10, 1) - 0.5
 	
 	def forward_prop(self, X):
 		Z1 = np.dot(self.W1, X) + self.b1
-		A1 = ReLU(Z1)
+		A1 = relu(Z1)
 		Z2 = np.dot(self.W2, A1) + self.b2
-		A2 = softmax(Z2)
+		A2 = softmax(Z2)	
 		return Z1, A1, Z2, A2
 	
-	def backward_prop(self, Z1, A1, Z2, A2, X, Y, m, alpha):
-		one_hot_Y = one_hot(Y)
-		dZ2 = A2 - one_hot_Y
-		dW2 = 1 / m * dZ2.dot(A1.T)
-		db2 = 1 / m * np.sum(dZ2)
-		dZ1 = np.dot(self.W2.T, dZ2) * ReLU_deriv(Z1)
-		dW1 = 1 / m * dZ1.dot(X.T)
-		db1 = 1 / m * np.sum(dZ1)
+	def back_prop(self, Z1, A1, Z2, A2, X, Y, alpha):
+		m = len(Y)
+		dZ2 = A2 - one_hot(Y)
+		dW2 = 1/m * np.dot(dZ2, A1.T)
+		db2 = 1/m * np.sum(dZ2)
+		dZ1 = np.dot(self.W2.T, dZ2) * deriv_relu(Z1)
+		dW1 = 1/m * np.dot(dZ1, X.T)
+		db1 = 1/m * np.sum(dZ1)
 
+		self.W2 = self.W2 - alpha * dW2
+		self.b2 = self.b2 - alpha * db2
 		self.W1 = self.W1 - alpha * dW1
-		self.b1 = self.b1 - alpha * db1    
-		self.W2 = self.W2 - alpha * dW2  
-		self.b2 = self.b2 - alpha * db2    
+		self.b1 = self.b1 - alpha * db1
 
-	def get_accuracy(self, predictions, Y):
-		print(predictions, Y)
-		return np.sum(predictions == Y) / Y.size
-	
-	def gradient_descent(self, X, Y, alpha, iterations, m):
-		for i in range(1, iterations+1):
+	def fit(self, X, Y, alpha, n_iters):
+		for i in range(1, n_iters+1):
 			Z1, A1, Z2, A2 = self.forward_prop(X)
-			self.backward_prop(Z1, A1, Z2, A2, X, Y, m, alpha)
-			if i % 100 == 0 or i == iterations:
-				print("Iteration: ", i)
-				predictions = get_predictions(A2)
-				print(f'Test Accuracy: {self.get_accuracy(predictions, Y):.2f}')
+			self.back_prop(Z1, A1, Z2, A2, X, Y, alpha)
+			accuracy = get_accuracy(A2, Y)
+			if i%100==0 or i==n_iters:
+				print(f'Iteration: {i} Accuracy: {accuracy}')
 
-	def predict(self, X):
-		_, _, _, A2 = self.forward_prop(X)
-		predict = get_predictions(A2)
-		return predict
-	
 	def test_train(self, index, X, Y):
-		test = X[:, index, None] # 1 example
-		predict = self.predict(test) # 1 output
+		test = X[:, index, None] 
+		Z1, A1, Z2, A2 = self.forward_prop(X)
+		predict = get_predict(A2) 
 		label = Y[index]
-		image = test.reshape((20, 20))
+		image = test.reshape((28, 28))
 
 		plt.imshow(image, interpolation='nearest', cmap='gray')
-		plt.title(f'Predict: {predict} Label: {label}')
+		plt.title(f'Predict: {predict[index]} Label: {label}')
 		plt.show()
-
-	def test_predict(self, X_test):
-		predict = self.predict(X_test)
-
-		for i in range(10):
-			image = X_test[:, i, None].reshape((28, 28)) * 255
-			plt.imshow(image, interpolation='nearest', cmap='gray')
-			plt.title(f'Predict on test data: {predict[i]}')
-			plt.show()
